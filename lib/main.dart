@@ -1,0 +1,295 @@
+import 'dart:io';
+
+import 'package:audio_video_progress_bar/audio_video_progress_bar.dart';
+import 'package:bytestream/buffer_audio_source.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:just_audio/just_audio.dart';
+import 'package:mime/mime.dart';
+import 'package:path_provider/path_provider.dart';
+
+void main() {
+  runApp(const MyApp());
+}
+class MyApp extends StatelessWidget {
+  const MyApp({Key? key}) : super(key: key);
+
+  // This widget is the root of your application.
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Flutter Demo',
+      theme: ThemeData(
+        // This is the theme of your application.
+        //
+        // Try running your application with "flutter run". You'll see the
+        // application has a blue toolbar. Then, without quitting the app, try
+        // changing the primarySwatch below to Colors.green and then invoke
+        // "hot reload" (press "r" in the console where you ran "flutter run",
+        // or simply save your changes to "hot reload" in a Flutter IDE).
+        // Notice that the counter didn't reset back to zero; the application
+        // is not restarted.
+        primarySwatch: Colors.blue,
+      ),
+      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+    );
+  }
+}
+
+class MyHomePage extends StatefulWidget {
+  const MyHomePage({Key? key, required this.title}) : super(key: key);
+
+  final String title;
+
+  @override
+  State<MyHomePage> createState() => _MyHomePageState();
+}
+
+class _MyHomePageState extends State<MyHomePage> {
+
+  final AudioPlayer _audioPlayerJust = AudioPlayer();
+
+  final progressNotifier = ValueNotifier<ProgressBarState>(
+    ProgressBarState(
+      current: Duration.zero,
+      buffered: Duration.zero,
+      total: Duration.zero,
+    ),
+  );
+  final buttonNotifier = ValueNotifier<ButtonState>(ButtonState.paused);
+  @override
+  void dispose() {
+    _audioPlayerJust.dispose();
+    super.dispose();
+  }
+  
+  @override
+  void initState(){
+    super.initState();
+  }
+
+  int startTime = 0;
+  int loadToMemTime = 0;
+  int beforeSourceTime = 0;
+  int afterSourceTime = 0;
+  int playStartTime = 0;
+
+  _printTimes(){
+    print('TotalTime: ${playStartTime-startTime}, loadToMemTime: ${loadToMemTime-startTime}, beforeSourceTime: ${beforeSourceTime-loadToMemTime}, afterSourceTime: ${afterSourceTime-beforeSourceTime}, playStartTime: ${playStartTime-afterSourceTime} ')  ;
+  }
+
+  _setupFileSource() async{
+    startTime = DateTime.now().millisecondsSinceEpoch;
+    var content = await rootBundle
+        .load("assets/music/rang.mp3");
+    loadToMemTime = DateTime.now().millisecondsSinceEpoch;
+    final directory = await getApplicationDocumentsDirectory();
+    var file = File("${directory.path}/rang.mp3");
+    file.writeAsBytesSync(content.buffer.asUint8List());
+    beforeSourceTime = DateTime.now().millisecondsSinceEpoch;
+    await _audioPlayerJust.setFilePath(file.path);
+    afterSourceTime = DateTime.now().millisecondsSinceEpoch;
+    //I/flutter (14016): TotalTime: 838, loadToMemTime: 68, beforeSourceTime: 129, afterSourceTime: 612, playStartTime: 29
+  }
+
+  _setupByteStreamSource() async{
+    startTime = DateTime.now().millisecondsSinceEpoch;
+
+    var content = await rootBundle
+        .load("assets/music/rang.mp3");
+
+    loadToMemTime = DateTime.now().millisecondsSinceEpoch;
+
+    String? _mime = lookupMimeType('rang.mp3',headerBytes: content.buffer.asUint8List(0,2));
+    print('Found mime $_mime');
+    _mime ??= 'audio/mpeg';
+
+    BufferAudioSource bufferAudioSource = BufferAudioSource(content.buffer.asUint8List(), _mime);
+    beforeSourceTime = DateTime.now().millisecondsSinceEpoch;
+    await _audioPlayerJust.setAudioSource(bufferAudioSource);
+    afterSourceTime = DateTime.now().millisecondsSinceEpoch;
+    //I/flutter (14016): TotalTime: 4495, loadToMemTime: 72, beforeSourceTime: 24, afterSourceTime: 4376, playStartTime: 23
+  }
+
+  void _play() async {
+    if(_audioPlayerJust.audioSource == null){
+      _setupAudioPlayerJust();
+      // await _audioPlayerJust.setAsset('assets/music/rang.mp3');
+
+      /*
+        Getting this error when trying load from assets directly
+        E/AudioPlayer(11944): TYPE_SOURCE: None of the available extractors (Mp3Extractor, FlvExtractor, FlacExtractor, WavExtractor, FragmentedMp4Extractor, Mp4Extractor, AmrExtractor, PsExtractor, OggExtractor, TsExtractor, MatroskaExtractor, AdtsExtractor, Ac3Extractor, Ac4Extractor, JpegExtractor) could read the stream.
+        I/ExoPlayerImpl(11944): Release db921df [ExoPlayerLib/2.15.0] [1901, vivo 1901, vivo, 30] [goog.exo.core]
+       */
+
+      /*
+        Ramesh: Please try one of the below sources at a time, and observe the timings printed from _printTimes method.
+        You will notice that the total time taken to play the song in _setupFileSource is .84 seconds out of which .6 seconds are taken by setFilePath method, where as the total time taken to play
+        the same song in _setupByteStreamSource is 4.5 seconds. Out of which close to 4.4 seconds are taken by the setAudioSource method.
+        Please help in improving the performance of StreamAudioSource.
+       */
+      await _setupFileSource();
+      // await _setupByteStreamSource();
+    }
+    await _audioPlayerJust.play();
+  }
+
+  void _pause() async{
+    await _audioPlayerJust.pause();
+  }
+
+
+  void _seek(Duration position) async{
+    await _audioPlayerJust.seek(position);
+  }
+
+  void _replay() async{
+    await _audioPlayerJust.seek(Duration.zero);
+    _play();
+  }
+
+
+  void _setupAudioPlayerJust(){
+    // listen for changes in player state
+    _audioPlayerJust.playerStateStream.listen((playerState) {
+      print('Player Processing State: ${playerState.processingState}');
+      final processingState = playerState.processingState;
+      if (processingState == ProcessingState.loading ||
+          processingState == ProcessingState.buffering) {
+        buttonNotifier.value = ButtonState.loading;
+      }else if (!playerState.playing) {
+        buttonNotifier.value = ButtonState.paused;
+      } else if (processingState != ProcessingState.completed) {
+        playStartTime = DateTime.now().millisecondsSinceEpoch;
+        _printTimes();
+        buttonNotifier.value = ButtonState.playing;
+      }else {
+        _replay();
+      }
+    });
+
+    // listen for changes in play position
+    _audioPlayerJust.positionStream.listen((position) {
+      final oldState = progressNotifier.value;
+      progressNotifier.value = ProgressBarState(
+        current: position,
+        buffered: oldState.buffered,
+        total: oldState.total,
+      );
+    });
+
+    // listen for changes in the buffered position
+    _audioPlayerJust.bufferedPositionStream.listen((bufferedPosition) {
+      final oldState = progressNotifier.value;
+      progressNotifier.value = ProgressBarState(
+        current: oldState.current,
+        buffered: bufferedPosition,
+        total: oldState.total,
+      );
+    });
+
+    // listen for changes in the total audio duration
+    _audioPlayerJust.durationStream.listen((totalDuration) {
+      final oldState = progressNotifier.value;
+      progressNotifier.value = ProgressBarState(
+        current: oldState.current,
+        buffered: oldState.buffered,
+        total: totalDuration ?? Duration.zero,
+      );
+    });
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.title),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            _getFilePlayer(),
+            // _getBufferedStreamPlayer(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  _getFilePlayer(){
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 15.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          ValueListenableBuilder<ButtonState>(
+            valueListenable: buttonNotifier,
+            builder: (_, value, __) {
+              switch (value) {
+                case ButtonState.loading:
+                  return Container(
+                    margin: const EdgeInsets.all(8.0),
+                    width: 50.0,
+                    height: 50.0,
+                    child: const CircularProgressIndicator(),
+                  );
+                case ButtonState.paused:
+                  return IconButton(
+                    icon: const Icon(
+                      Icons.play_circle_fill,
+                      size: 50,
+                    ),
+                    iconSize: 50.0,
+                    onPressed: _play,
+                  );
+                case ButtonState.playing:
+                  return IconButton(
+                    icon: const Icon(
+                      Icons.pause,
+                      size: 50,
+                    ),
+                    iconSize: 50.0,
+                    onPressed: _pause,
+                  );
+                default:
+                  return Container();
+              }
+            },
+          ),
+          const SizedBox(width: 10,),
+          Expanded(
+            child: ValueListenableBuilder<ProgressBarState>(
+              valueListenable: progressNotifier,
+              builder: (_, value, __) {
+                return ProgressBar(
+                  progress: value.current,
+                  buffered: value.buffered,
+                  total: value.total,
+                  onSeek: _seek,
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  _getBufferedStreamPlayer(){
+
+  }
+}
+
+class ProgressBarState {
+  ProgressBarState({
+    required this.current,
+    required this.buffered,
+    required this.total,
+  });
+  final Duration current;
+  final Duration buffered;
+  final Duration total;
+}
+
+enum ButtonState { paused, playing, loading }
