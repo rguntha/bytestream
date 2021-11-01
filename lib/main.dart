@@ -75,7 +75,7 @@ class _MyHomePageState extends State<MyHomePage> {
   int playStartTime = 0;
 
   _printTimes(){
-    print('TotalTime: ${playStartTime-startTime}, loadToMemTime: ${loadToMemTime-startTime}, beforeSourceTime: ${beforeSourceTime-loadToMemTime}, afterSourceTime: ${afterSourceTime-beforeSourceTime}, playStartTime: ${playStartTime-afterSourceTime} ')  ;
+    print('**************TotalTime: ${playStartTime-startTime}, loadToMemTime: ${loadToMemTime-startTime}, beforeSourceTime: ${beforeSourceTime-loadToMemTime}, afterSourceTime: ${afterSourceTime-beforeSourceTime}, playStartTime: ${playStartTime-afterSourceTime} ')  ;
   }
 
   _setupFileSource() async{
@@ -128,8 +128,8 @@ class _MyHomePageState extends State<MyHomePage> {
         the same song in _setupByteStreamSource is 4.5 seconds. Out of which close to 4.4 seconds are taken by the setAudioSource method.
         Please help in improving the performance of StreamAudioSource.
        */
-      await _setupFileSource();
-      // await _setupByteStreamSource();
+      // await _setupFileSource();
+      await _setupByteStreamSource();
     }
     await _audioPlayerJust.play();
   }

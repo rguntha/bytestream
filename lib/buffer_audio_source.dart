@@ -12,6 +12,7 @@ class BufferAudioSource extends StreamAudioSource {
   @override
   Future<StreamAudioResponse> request([int? start, int? end]){
     print('$start:$end:$_mime');
+    int startTime = DateTime.now().millisecondsSinceEpoch;
     start = start ?? 0;
     end = end ?? _buffer.length;
     if(end > _buffer.length){
@@ -21,7 +22,7 @@ class BufferAudioSource extends StreamAudioSource {
 
     Stream<List<int>> stream =
     Stream.value(List<int>.from(_buffer.skip(start).take(end - start)));
-    print('$start:$end-done');
+    print('**************$start:$end-done. time taken to convert the Uint8List to List<int> ${DateTime.now().millisecondsSinceEpoch - startTime}');
 
     return Future.value(
       StreamAudioResponse(
