@@ -21,7 +21,8 @@ class BufferAudioSource extends StreamAudioSource {
     print('$start:$end');
 
     Stream<List<int>> stream =
-    Stream.value(List<int>.from(_buffer.skip(start).take(end - start)));
+    // Stream.value(List<int>.from(_buffer.skip(start).take(end - start)));
+    Stream.value(_buffer.sublist(start,end));
     print('**************$start:$end-done. time taken to convert the Uint8List to List<int> ${DateTime.now().millisecondsSinceEpoch - startTime}');
 
     return Future.value(

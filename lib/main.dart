@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:audio_video_progress_bar/audio_video_progress_bar.dart';
 import 'package:bytestream/buffer_audio_source.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
@@ -20,18 +21,9 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // Try running your application with "flutter run". You'll see the
-        // application has a blue toolbar. Then, without quitting the app, try
-        // changing the primarySwatch below to Colors.green and then invoke
-        // "hot reload" (press "r" in the console where you ran "flutter run",
-        // or simply save your changes to "hot reload" in a Flutter IDE).
-        // Notice that the counter didn't reset back to zero; the application
-        // is not restarted.
         primarySwatch: Colors.blue,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const MyHomePage(title: 'JustAudio StreamAudioSource Example'),
     );
   }
 }
@@ -47,7 +39,8 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
 
-  final AudioPlayer _audioPlayerJust = AudioPlayer();
+  final AudioPlayer _audioPlayerJust = AudioPlayer(audioLoadConfiguration: AudioLoadConfiguration(androidLoadControl: AndroidLoadControl(),
+      darwinLoadControl: DarwinLoadControl(preferredForwardBufferDuration: const Duration(seconds: 50))));
 
   final progressNotifier = ValueNotifier<ProgressBarState>(
     ProgressBarState(
@@ -78,20 +71,6 @@ class _MyHomePageState extends State<MyHomePage> {
     print('**************TotalTime: ${playStartTime-startTime}, loadToMemTime: ${loadToMemTime-startTime}, beforeSourceTime: ${beforeSourceTime-loadToMemTime}, afterSourceTime: ${afterSourceTime-beforeSourceTime}, playStartTime: ${playStartTime-afterSourceTime} ')  ;
   }
 
-  _setupFileSource() async{
-    startTime = DateTime.now().millisecondsSinceEpoch;
-    var content = await rootBundle
-        .load("assets/music/rang.mp3");
-    loadToMemTime = DateTime.now().millisecondsSinceEpoch;
-    final directory = await getApplicationDocumentsDirectory();
-    var file = File("${directory.path}/rang.mp3");
-    file.writeAsBytesSync(content.buffer.asUint8List());
-    beforeSourceTime = DateTime.now().millisecondsSinceEpoch;
-    await _audioPlayerJust.setFilePath(file.path);
-    afterSourceTime = DateTime.now().millisecondsSinceEpoch;
-    //I/flutter (14016): TotalTime: 838, loadToMemTime: 68, beforeSourceTime: 129, afterSourceTime: 612, playStartTime: 29
-  }
-
   _setupByteStreamSource() async{
     startTime = DateTime.now().millisecondsSinceEpoch;
 
@@ -114,21 +93,6 @@ class _MyHomePageState extends State<MyHomePage> {
   void _play() async {
     if(_audioPlayerJust.audioSource == null){
       _setupAudioPlayerJust();
-      // await _audioPlayerJust.setAsset('assets/music/rang.mp3');
-
-      /*
-        Getting this error when trying load from assets directly
-        E/AudioPlayer(11944): TYPE_SOURCE: None of the available extractors (Mp3Extractor, FlvExtractor, FlacExtractor, WavExtractor, FragmentedMp4Extractor, Mp4Extractor, AmrExtractor, PsExtractor, OggExtractor, TsExtractor, MatroskaExtractor, AdtsExtractor, Ac3Extractor, Ac4Extractor, JpegExtractor) could read the stream.
-        I/ExoPlayerImpl(11944): Release db921df [ExoPlayerLib/2.15.0] [1901, vivo 1901, vivo, 30] [goog.exo.core]
-       */
-
-      /*
-        Ramesh: Please try one of the below sources at a time, and observe the timings printed from _printTimes method.
-        You will notice that the total time taken to play the song in _setupFileSource is .84 seconds out of which .6 seconds are taken by setFilePath method, where as the total time taken to play
-        the same song in _setupByteStreamSource is 4.5 seconds. Out of which close to 4.4 seconds are taken by the setAudioSource method.
-        Please help in improving the performance of StreamAudioSource.
-       */
-      // await _setupFileSource();
       await _setupByteStreamSource();
     }
     await _audioPlayerJust.play();
