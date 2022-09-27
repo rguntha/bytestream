@@ -11,7 +11,7 @@ class BufferAudioSource extends StreamAudioSource {
 
   @override
   Future<StreamAudioResponse> request([int? start, int? end]){
-    print('$start:$end:$_mime');
+    print('**************Requested start and end $start:$end');
     int startTime = DateTime.now().millisecondsSinceEpoch;
     start = start ?? 0;
     end = end ?? _buffer.length;
@@ -20,7 +20,7 @@ class BufferAudioSource extends StreamAudioSource {
     }
 
     int contentLength = end - start;
-    print('$start:$end');
+    print('**************Calculated start and end $start:$end');
 
     StreamController<List<int>> controller = StreamController<List<int>>();
 
