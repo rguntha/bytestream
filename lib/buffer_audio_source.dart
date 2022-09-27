@@ -18,17 +18,35 @@ class BufferAudioSource extends StreamAudioSource {
     if(end > _buffer.length){
       end = _buffer.length;
     }
+
+    int contentLength = end - start;
     print('$start:$end');
 
-    Stream<List<int>> stream =
+    StreamController<List<int>> controller = StreamController<List<int>>();
+
+    Stream<List<int>> stream = controller.stream;
+
+    Timer.periodic(Duration(milliseconds: 100), (timer) {
+      if(start! >= end!){
+        timer.cancel();
+        controller.close();
+        return;
+      }
+      int endPos = start! + 10000;
+      if(endPos > end!){
+        endPos = end!;
+      }
+      controller.add(_buffer.sublist(start!,endPos));
+      start = endPos;
+    });
     // Stream.value(List<int>.from(_buffer.skip(start).take(end - start)));
-    Stream.value(_buffer.sublist(start,end));
+    // Stream.value(_buffer.sublist(start,end));
     print('**************$start:$end-done. time taken to convert the Uint8List to List<int> ${DateTime.now().millisecondsSinceEpoch - startTime}');
 
     return Future.value(
       StreamAudioResponse(
         sourceLength: _buffer.length,
-        contentLength: end - start,
+        contentLength: contentLength,
         offset: start,
         contentType: _mime,
         stream:stream,
