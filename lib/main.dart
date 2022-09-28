@@ -39,8 +39,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
 
-  final AudioPlayer _audioPlayerJust = AudioPlayer(audioLoadConfiguration: AudioLoadConfiguration(androidLoadControl: AndroidLoadControl(),
-      darwinLoadControl: DarwinLoadControl(preferredForwardBufferDuration: const Duration(seconds: 50))));
+  final AudioPlayer _audioPlayerJust = AudioPlayer();
 
   final progressNotifier = ValueNotifier<ProgressBarState>(
     ProgressBarState(
@@ -85,7 +84,12 @@ class _MyHomePageState extends State<MyHomePage> {
 
     BufferAudioSource bufferAudioSource = BufferAudioSource(content.buffer.asUint8List(), _mime);
     beforeSourceTime = DateTime.now().millisecondsSinceEpoch;
-    await _audioPlayerJust.setAudioSource(bufferAudioSource);
+    final _audioSource = LockCachingAudioSource(Uri.parse(
+        "https://dovetail.prxu.org/70/66673fd4-6851-4b90-a762-7c0538c76626/CoryCombs_2021T_VO_Intro.mp3"));
+    await _audioPlayerJust.setAudioSource(_audioSource);
+    // await _audioPlayerJust.setAudioSource(bufferAudioSource);
+    // await _audioPlayerJust.setAudioSource(AudioSource.uri(Uri.parse(
+    //     "https://s3.amazonaws.com/scifri-episodes/scifri20181123-episode.mp3")));
     afterSourceTime = DateTime.now().millisecondsSinceEpoch;
     //I/flutter (14016): TotalTime: 4495, loadToMemTime: 72, beforeSourceTime: 24, afterSourceTime: 4376, playStartTime: 23
   }
